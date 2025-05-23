@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app
+    environment:
+      - DB_MSSQL_CONN_STR=sqlserver://sa:Mssq!P@ssw24rd@mssql:1433
+      # - DB_MYSQL_CONN_STR=mysql://sample:Mysq!P@ssw24rd@mysql:3306/test
+      # - DB_MONGO_CONN_STR=mongodb://root:M0ng0P@ssw0rd@mongodb:27017
+    depends_on:
+      - mssql
+      - mysql
+      - mongodb
+    networks:
+      - productnetwork
+    restart: on-failure
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Mssq!P@ssw24rd
+      - MSSQL_PID=Express
+      # - MSSQL_PID=Developer
+      - MSSQL_AGENT_ENABLED=true
+      - MSSQL_TCP_PORT=1433
+      - MSSQL_DISABLE_ENCRYPTION=true
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlvolume:/var/opt/mssql
+    healthcheck:
+      test: [ "CMD", "/opt/mssql-tools/bin/sqlcmd", "-U", "sa", "-P", "Mssq!P@ssw24rd", "-Q", "SELECT 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - productnetwork
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'test'
+      MYSQL_USER: 'sample'
+      MYSQL_PASSWORD: 'Mysq!P@ssw24rd'
+      MYSQL_ROOT_PASSWORD: 'Mysq!P@ssw24rd'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+    volumes:
+      - mysql-db:/var/lib/mysql
+    networks:
+      - productnetwork
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongo-db:/data/db
+    networks:
+      - productnetwork
+
+volumes:
+  sqlvolume:
+  mysql-db:
+  mongo-db:
+
+networks:
+  productnetwork:

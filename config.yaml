@@ -1,0 +1,9 @@
+app:
+  port: 8000
+db:
+  driver: mysql
+  username: root
+  password: Mysq!P@ssw24rd
+  host: 172.29.202.62
+  port: 3306
+  name: DevSource
