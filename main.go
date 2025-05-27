@@ -27,6 +27,10 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql s
 
 }
 
+var db *gorm.DB
+
+// main function initializes the configuration, sets the timezone, and connects to the database.
+// It also creates the necessary tables if they do not exist.
 func main() {
 	initConfig()
 	initTimeZone()
@@ -39,46 +43,70 @@ func main() {
 		viper.GetString("db.name"),
 	)
 	dial := mysql.Open(dsn)
-	db, err := gorm.Open(dial, &gorm.Config{
+
+	var err error
+	db, err = gorm.Open(dial, &gorm.Config{
 		Logger: &SqlLogger{},
-		DryRun: true,
+		DryRun: false, // Set to true to enable dry run mode
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	// isExist := db.Migrator().HasTable(Gender{})
-	// if !isExist {
-	// 	db.Migrator().CreateTable(Gender{})
-	// }
+	// db.Migrator().CreateTable(Test{})
 
-	// isExist = db.Migrator().HasTable(Category{})
-	// if !isExist {
-	// 	db.Migrator().CreateTable(Category{})
-	// }
+	// db.AutoMigrate(Gender{}, Test{})
+	// CreateGender("Male")
+	// CreateGender("Female")
+	// GetGenders()
+	// GetGender(1)
+	GetGenderByName("Female")
+}
 
-	// isExist = db.Migrator().HasTable(Person{})
-	// if !isExist {
-	// 	db.Migrator().CreateTable(Person{})
-	// }
+func GetGenders() {
+	genders := []Gender{}
+	tx := db.Order("id").Find(&genders)
+	if tx.Error != nil {
+		fmt.Println("Error getting	", tx.Error)
+		return
+	}
+	fmt.Println(genders)
+}
 
-	// isExist = db.Migrator().HasTable(OrderDetail{})
-	// if !isExist {
-	// 	db.Migrator().CreateTable(OrderDetail{})
-	// }
+func GetGenderByName(name string) {
+	genders := []Gender{}
+	// tx := db.Order("id").Find(&genders, "name = ?", name)
+	tx := db.Where("name=?", name).Order("id").Find(&genders)
+	if tx.Error != nil {
+		fmt.Println("Error getting	", tx.Error)
+		return
+	}
+	fmt.Println(genders)
+}
 
-	// isExist := db.Migrator().HasTable(Test{})
-	// if !isExist {
-	// 	db.Migrator().CreateTable(Test{})
-	// }
-	// db.AutoMigrate(Test{})
+func GetGender(id uint) {
+	gender := Gender{}
+	tx := db.First(&gender, id)
+	if tx.Error != nil {
+		fmt.Println("Error getting ", tx.Error)
+		return
+	}
+	fmt.Println(gender)
+}
 
-	db.Migrator().CreateTable(Test{})
+func CreateGender(name string) {
+	gender := Gender{Name: name}
+	tx := db.Create(&gender)
+	if tx.Error != nil {
+		fmt.Println("Error creating ", tx.Error)
+		return
+	}
+	fmt.Println(gender)
 }
 
 type Gender struct {
 	ID   uint
-	Name string
+	Name string `gorm:"unique;size(10)"`
 }
 
 type Category struct {
@@ -98,10 +126,16 @@ type OrderDetail struct {
 }
 
 type Test struct {
-	ID        uint
-	Name      string
+	gorm.Model        // ID, CreatedAt, UpdatedAt, DeletedAt
+	Code       uint   `gorm:"comment: 'This is Code'"`
+	Name       string `gorm:"column:myname;type:varchar(50);unique;default:'Hello';not null"`
+	// Price     int    `gorm:"default:1000"`
 	CreatedAt string
 	Desc      string
+}
+
+func (t Test) TableName() string {
+	return "MyTest"
 }
 
 func initTimeZone() {
