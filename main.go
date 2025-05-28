@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
 
@@ -55,7 +57,7 @@ func main() {
 
 	// db.Migrator().CreateTable(Test{})
 
-	// db.AutoMigrate(Gender{}, Test{})
+	// db.AutoMigrate(Gender{}, Test{}, CustomerGorm{})
 	// CreateGender("Male")
 	// CreateGender("Female")
 	// GetGenders()
@@ -63,7 +65,81 @@ func main() {
 	// GetGenderByName("Female")
 	// CreateGender("xxxx")
 	// UpdateGender(4, "yyyy")
-	UpdateGenderWithModel(4, "zzzz") // Using Model to update if set value to zero, it will not update that field
+	// UpdateGenderWithModel(4, "zzzz") // Using Model to update if set value to zero, it will not update that field
+	// DeleteGender(4)
+	// CreateTest(0, "Test 1")
+	// CreateTest(0, "Test 2")
+	// CreateTest(0, "Test 3")
+	// DeleteTest(3)
+	// GetTests()
+	// DeleteTestPermanently(3)
+	// CreateCustomer("Note", 2)
+	GetCustomers()
+}
+
+type CustomerGorm struct {
+	ID       uint
+	Name     string
+	GenderID uint
+	Gender   Gender
+}
+
+func GetCustomers() {
+	customers := []CustomerGorm{}
+	// tx := db.Preload("Gender").Find(&customers)
+	tx := db.Preload(clause.Associations).Find(&customers) // This will load all associations defined in the model
+	if tx.Error != nil {
+		fmt.Println(tx.Error)
+		return
+	}
+	fmt.Println(customers)
+	for _, v := range customers {
+		fmt.Printf("%v|%v|%v\n", v.ID, v.Name, v.Gender.Name)
+	}
+}
+
+func CreateCustomer(name string, genderID uint) {
+	customer := CustomerGorm{Name: name, GenderID: genderID}
+	tx := db.Create(&customer)
+	if tx.Error != nil {
+		fmt.Println(tx.Error)
+		return
+	}
+	fmt.Println(customer)
+}
+
+func CreateTest(code uint, name string) {
+	test := Test{
+		Code: code,
+		Name: name,
+	}
+	db.Create(&test)
+}
+
+func GetTests() {
+	test := []Test{}
+	db.Find(&test)
+	for _, v := range test {
+		fmt.Printf("ID: %d| Code: %d | Name: %s\n", v.ID, v.Code, v.Name)
+	}
+}
+
+// DeleteTest deletes a test record by its ID (soft deleting).
+func DeleteTest(id uint) {
+	db.Delete(&Test{}, id)
+}
+func DeleteTestPermanently(id uint) {
+	db.Unscoped().Delete(&Test{}, id)
+}
+
+func DeleteGender(id uint) {
+	tx := db.Delete(&Gender{}, id)
+	if tx.Error != nil {
+		fmt.Println("Error deleting ", tx.Error)
+		return
+	}
+	fmt.Println("Deleted")
+	GetGender(id)
 }
 
 func UpdateGender(id uint, name string) {
@@ -84,7 +160,8 @@ func UpdateGender(id uint, name string) {
 
 func UpdateGenderWithModel(id uint, name string) {
 	gender := Gender{Name: name}
-	tx := db.Model(&gender).Where("id =?", id).Updates(gender)
+	// tx := db.Model(&gender).Where("id =?", id).Updates(gender)
+	tx := db.Model(&gender).Where("id =@myid", sql.Named("myid", id)).Updates(gender) // Using sql.Named to bind parameter, GORM supports named arguments
 	if tx.Error != nil {
 		fmt.Println("Error updating ", tx.Error)
 		return
