@@ -60,7 +60,36 @@ func main() {
 	// CreateGender("Female")
 	// GetGenders()
 	// GetGender(1)
-	GetGenderByName("Female")
+	// GetGenderByName("Female")
+	// CreateGender("xxxx")
+	// UpdateGender(4, "yyyy")
+	UpdateGenderWithModel(4, "zzzz") // Using Model to update if set value to zero, it will not update that field
+}
+
+func UpdateGender(id uint, name string) {
+	gender := Gender{}
+	tx := db.First(&gender, id)
+	if tx.Error != nil {
+		fmt.Println("Error getting ", tx.Error)
+		return
+	}
+	gender.Name = name
+	tx = db.Save(&gender)
+	if tx.Error != nil {
+		fmt.Println("Error updating ", tx.Error)
+		return
+	}
+	GetGender(id)
+}
+
+func UpdateGenderWithModel(id uint, name string) {
+	gender := Gender{Name: name}
+	tx := db.Model(&gender).Where("id =?", id).Updates(gender)
+	if tx.Error != nil {
+		fmt.Println("Error updating ", tx.Error)
+		return
+	}
+	GetGender(id)
 }
 
 func GetGenders() {
